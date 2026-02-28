@@ -14,6 +14,12 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    GEMINI_API_KEY: str = "my_api_key"
+
+    LANGCHAIN_API_KEY: str = ""
+    LANGCHAIN_TRACING_V2: str = ""
+    LANGCHAIN_PROJECT: str = ""
+    LANGCHAIN_ENDPOINT: str = ""
     # ── App ──
     APP_NAME: str = "APDP"
     APP_VERSION: str = "0.1.0"
