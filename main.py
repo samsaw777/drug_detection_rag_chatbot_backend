@@ -5,13 +5,21 @@ Run with: uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import time
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from langsmith import Client as LangSmithClient
+from langsmith import traceable
+
+import logging
 
 from config import get_settings
 from routes import api_router, main_router
 # from utils import logger
 
+
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -37,6 +45,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def langsmith_trace_middleware(request: Request, call_next):
+    """
+    Wraps every incoming HTTP request in a LangSmith trace.
+    You'll see each request as a run in your LangSmith dashboard
+    with the route, method, status code, and latency.
+    """
+
+    @traceable(
+        name=f"{request.method} {request.url.path}",
+        run_type="chain",
+        tags=["http", request.method.lower()],
+        metadata={
+            "route": request.url.path,
+            "method": request.method,
+            "project": settings.LANGCHAIN_PROJECT,
+        },
+    )
+    async def traced_request():
+        start = time.perf_counter()
+        response = await call_next(request)
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        logger.info(
+            f"{request.method} {request.url.path} "
+            f"→ {response.status_code} ({duration_ms}ms)"
+        )
+        return response
+
+    return await traced_request()
 
 # Register routes
 app.include_router(api_router)
