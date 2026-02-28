@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Git
+.git/
+.gitignore
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Test / type caches
+.pytest_cache/
+.mypy_cache/
+ruff_cache/
+
+# Local secrets
+.env
+.env.*
