@@ -14,3 +14,9 @@ langsmith>=0.2.10
 # Utilities
 python-dotenv>=1.0.1
 httpx>=0.28.0
+
+# Testing libraries
+anyio>=4.12.1
+httpx>=0.28.1
+pytest>=9.0.2
+pytest-asyncio>=1.3.0
