@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     LANGCHAIN_TRACING_V2: str = ""
     LANGCHAIN_PROJECT: str = ""
     LANGCHAIN_ENDPOINT: str = ""
+    REDIS_PASSWORD: str = ""
+    REDIS_URL:str = ""
     # ── App ──
     APP_NAME: str = "APDP"
     APP_VERSION: str = "0.1.0"

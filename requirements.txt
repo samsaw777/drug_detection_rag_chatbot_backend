@@ -9,6 +9,7 @@ langchain>=0.3.14
 langchain-core>=0.3.29
 langchain-google-genai>=2.0.7
 langsmith>=0.2.10
+langgraph-checkpoint-redis
 
 
 # Utilities
