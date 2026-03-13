@@ -54,7 +54,7 @@ class QueryAnalyser:
             raise ValueError("Query cannot be empty")
         formatted_prompt = self.prompt.format(query=query)
         response = self.llm.invoke(formatted_prompt)
-        raw_output = response.content.strip()
+        raw_output = str(response.content).strip()
         raw_output = raw_output.replace("```json", "").replace("```", "").strip()
         try:
             parsed = json.loads(raw_output)
