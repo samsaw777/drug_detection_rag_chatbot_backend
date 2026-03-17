@@ -9,7 +9,9 @@ langchain>=0.3.14
 langchain-core>=0.3.29
 langchain-google-genai>=2.0.7
 langsmith>=0.2.10
-langgraph-checkpoint-redis
+langgraph-checkpoint-postgres==3.0.4
+psycopg[binary]==3.3.3
+psycopg-pool==3.2.6
 
 
 # Utilities

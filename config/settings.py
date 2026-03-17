@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict # type: ignore
 from functools import lru_cache
 
 
@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     All application settings loaded from .env file.
     Never hardcode secrets or config values directly.
     """
+    
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -29,6 +30,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    DATABASE_URL: str = ""
 
 
 @lru_cache()

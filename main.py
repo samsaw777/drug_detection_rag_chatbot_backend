@@ -16,25 +16,28 @@ import logging
 
 from config import get_settings
 from routes import api_router, main_router
-# from utils import logger
+from Agents.query_analyser import QueryAnalyserAgent
 
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     """Startup and shutdown events."""
-#     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
-#     yield
-#     logger.info("Shutting down...")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: build the async agent. Shutdown: cleanup."""
+    logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    app.state.agent = await QueryAnalyserAgent.create()
+    logger.info("QueryAnalyserAgent ready")
+    yield
+    logger.info("Shutting down...")
 
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="Agentic Data Processing Platform",
+    lifespan=lifespan,
 )
 
 # CORS middleware
