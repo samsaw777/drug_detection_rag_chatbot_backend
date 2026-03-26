@@ -1,4 +1,4 @@
-import pytest
+import pytest # type: ignore
 from schemas import QueryRequest, QueryResponse
 
 def test_query_request_valid():
