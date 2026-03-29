@@ -1,20 +1,29 @@
 from pydantic import BaseModel
 
+
 class QueryRequest(BaseModel):
-    raw_query: str                
+    raw_query: str
+
+
+# Single interaction pair extracted by the analyser
+class InteractionPair(BaseModel):
+    type: str      
+    drug: str
+    target: str
+
 
 # Normal Query Response
 class QueryResponse(BaseModel):
-    interaction_types: list[str]   
-    drugs: list[str]               
-    foods: list[str]              
-    herbs: list[str]               
-    corrected_query: str = ""     
+    interactions: list[InteractionPair]
+    clarification_needed: bool = False
+    clarification_message: str = ""
+    corrected_query: str = ""    
+    final_output: str = ""
 
-# Confirmation query response
+
+# Response sent to frontend when spelling or clarification is needed
 class ClarificationResponse(BaseModel):
-    """Returned when a spelling correction is detected and needs user confirmation."""
-    needs_clarification: bool = True
+    type: str                      
     thread_id: str
     message: str
-    corrections: list[dict]
+    corrections: list[dict] = []    

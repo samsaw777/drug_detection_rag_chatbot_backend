@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     )
 
     GEMINI_API_KEY: str = "my_api_key"
+    GEMINI_API_KEY_ONE: str = "my_api_key"
 
     LANGCHAIN_API_KEY: str = ""
     LANGCHAIN_TRACING_V2: str = ""
@@ -31,6 +32,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     DATABASE_URL: str = ""
+    MAIN_DATABASE_URL: str = ""
 
 
 @lru_cache()

@@ -21,6 +21,9 @@ httpx>=0.28.0
 #test libraries
 pytest==9.0.2
 
+# sql libraries
+psycopg2-binary==2.9.11
+
 # Testing libraries
 anyio>=4.12.1
 httpx>=0.28.1

@@ -1,14 +1,10 @@
-"""
-Agent_Prompts/analyser_prompt.py — Prompt templates for the QueryAnalyser agent.
-"""
-
 from langchain_core.prompts import PromptTemplate
 
 
 ANALYSER_PROMPT = PromptTemplate(
     input_variables=["query"],
     template="""
-You are a pharmaceutical query analyser. Your job is to analyse the user's query and extract structured information from it.
+You are a pharmaceutical query analyser. Your job is to analyse the user's query and extract structured interaction pairs from it.
 
 Given the following user query:
 "{query}"
@@ -16,11 +12,16 @@ Given the following user query:
 Extract the following information and return ONLY a valid JSON object with no extra text, no markdown, no explanation:
 
 {{
-  "interaction_types": [list of applicable types from: "drug-drug", "drug-food", "drug-herb"],
-  "drugs": [list of drug names mentioned],
-  "foods": [list of food items mentioned],
-  "herbs": [list of herbal/medicinal herb names mentioned],
-  "corrected_query": "the original query unchanged",
+  "interactions": [
+    {{
+      "type": "drug-food" or "drug-herb" or "drug-drug",
+      "drug": "the drug name",
+      "target": "the food, herb, or second drug name"
+    }}
+  ],
+  "clarification_needed": true or false,
+  "clarification_message": "question to ask the user if clarification is needed, otherwise empty string",
+  "corrected_query": "the original query exactly as typed",
   "spelling_flags": [
     {{
       "original": "the word as the user typed it",
@@ -31,15 +32,31 @@ Extract the following information and return ONLY a valid JSON object with no ex
 }}
 
 Rules:
-- DO NOT correct any spelling in drugs, foods, or herbs — return names exactly as the user typed them.
-- If a drug, food, or herb name appears misspelled or non-standard, do NOT fix it silently.
-  Instead, add it to spelling_flags with your suggested correction.
-- If no spelling issues are found, return an empty list for spelling_flags.
-- interaction_types must only include types relevant to the query.
-- If no drugs are mentioned, return an empty list for drugs.
-- If no foods are mentioned, return an empty list for foods.
-- If no herbs are mentioned, return an empty list for herbs.
+
+Interaction Pair Extraction:
+- Each interaction must be a pair with a drug and a target.
+- "type" is determined by what the target is: "drug-food" if target is a food, "drug-herb" if target is an herb, "drug-drug" if target is another drug.
+- If the user asks a compound question with multiple interactions, extract each as a separate pair.
 - Normalise all names to lowercase.
+- DO NOT correct any spelling in drug, food, or herb names — return them exactly as the user typed them in the interaction pairs.
+
+Clarification Rules:
+- Set clarification_needed to true if:
+  - The query mentions a drug but no specific food, herb, or drug to check against (e.g., "what interacts with warfarin?").
+  - The query mentions a food or herb but no specific drug (e.g., "is grapefruit bad with anything?").
+  - The query asks about interactions but is missing one side of the pair (e.g., "also tell me about food interactions" without naming the food).
+  - The query is too vague to identify any drug, food, or herb (e.g., "is my medication safe?").
+  - The query has no pharmaceutical intent (e.g., greetings, off-topic questions).
+- When clarification_needed is true, interactions must be an empty list.
+- clarification_message should be a short, helpful question guiding the user to provide the missing information.
+- Set clarification_needed to false when at least one complete interaction pair can be formed.
+
+Spelling Rules:
+- DO NOT correct any spelling — return names exactly as the user typed them in the interaction pairs.
+- If a name appears misspelled or non-standard, add it to spelling_flags with your suggested correction.
+- If no spelling issues are found, return an empty list for spelling_flags.
+
+General Rules:
 - corrected_query must be the original query exactly as typed — do not change anything in it.
 - Return ONLY the JSON object, nothing else.
 """,
@@ -55,10 +72,15 @@ The query to analyse is: "{query}"
 
 Expected format:
 {{
-  "interaction_types": [...],
-  "drugs": [...],
-  "foods": [...],
-  "herbs": [...],
+  "interactions": [
+    {{
+      "type": "drug-food" or "drug-herb" or "drug-drug",
+      "drug": "the drug name",
+      "target": "the food, herb, or second drug name"
+    }}
+  ],
+  "clarification_needed": true or false,
+  "clarification_message": "question to ask if needed, otherwise empty string",
   "corrected_query": "original query unchanged",
   "spelling_flags": [
     {{
