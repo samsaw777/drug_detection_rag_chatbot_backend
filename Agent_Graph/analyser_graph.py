@@ -16,9 +16,6 @@ from Agent_Nodes.query_nodes import (
 )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ROUTING FUNCTIONS
-# ─────────────────────────────────────────────────────────────────────────────
 
 def route_after_validate(state: AnalyserState) -> str:
     return "analyse_query" if state["status"] == "ok" else "handle_error"
@@ -39,11 +36,7 @@ def route_after_corrections(state: AnalyserState) -> str:
 def route_after_confirmation(state: AnalyserState) -> str:
     return "analyse_query" if state["status"] == "restart" else "build_query_response"
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# GRAPH BUILDER
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Graph builder
 async def build_graph():
     """
     Compile and return the QueryAnalyser LangGraph with Postgres checkpointer.

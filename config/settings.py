@@ -32,7 +32,8 @@ class Settings(BaseSettings):
     PORT: int = 8000
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     DATABASE_URL: str = ""
-    MAIN_DATABASE_URL: str = ""
+    DATABASE_URL_CHECKPOINT:str = ""
+
 
 
 @lru_cache()

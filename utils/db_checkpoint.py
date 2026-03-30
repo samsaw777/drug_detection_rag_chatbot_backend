@@ -46,7 +46,7 @@ async def get_checkpointer() -> AsyncPostgresSaver:
     if _checkpointer is not None:
         return _checkpointer
 
-    db_url = settings.DATABASE_URL
+    db_url = settings.DATABASE_URL_CHECKPOINT
     if not db_url:
         raise ValueError(
             "DATABASE_URL not found in environment / .env file.\n"
