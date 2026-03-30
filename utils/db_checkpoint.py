@@ -27,7 +27,7 @@
 
 """
 utils/db_checkpointer.py — Postgres checkpointer for LangGraph HITL.
-Uses Supabase Postgres for both local dev and production.
+Uses Supabase Postgres for both local dev and production..
 """
 
 from psycopg_pool import AsyncConnectionPool
