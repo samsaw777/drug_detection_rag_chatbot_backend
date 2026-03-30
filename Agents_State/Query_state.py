@@ -6,7 +6,7 @@ from typing import Literal, Optional
 from typing_extensions import TypedDict
 
 from schemas.query_response import QueryResponse
-
+from schemas.frequent_query import CanonicalQuery
 
 class AnalyserState(TypedDict):
     query: str                               # raw user input
@@ -20,6 +20,9 @@ class AnalyserState(TypedDict):
     awaiting_confirmation: bool         # True = graph paused at interrupt()
     user_confirmation: str              # user reply — "yes" or a new name
     thread_id: str                     # Redis key to resume the right graph instance
+    is_frequent_fetched: bool
+    canonical_query: Optional[CanonicalQuery]
+    frequent_response: Optional[str]
 
 
 def initial_state(query: str, thread_id:str = "") -> AnalyserState:
@@ -36,4 +39,7 @@ def initial_state(query: str, thread_id:str = "") -> AnalyserState:
         awaiting_confirmation=False,
         user_confirmation="",
         thread_id=thread_id,
+        is_frequent_fetched= False,
+        canonical_query= None,
+        frequent_response= None
     )

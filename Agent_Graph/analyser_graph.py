@@ -155,6 +155,7 @@ from Agent_Nodes.query_nodes import (
     apply_confirmation,
     format_output,
     handle_error,
+    frequent_query_check
 )
 
 
@@ -194,6 +195,7 @@ async def build_graph():
     graph = StateGraph(AnalyserState)
 
     graph.add_node("validate_input",     validate_input)
+    # graph.add_node("frequent_query_check", frequent_query_check)
     graph.add_node("analyse_query",      analyse_query)
     graph.add_node("parse_response",     parse_response)
     graph.add_node("retry_analyse",      retry_analyse)

@@ -15,10 +15,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    GEMINI_API_KEY: str = "my_api_key"
+    GEMINI_API_KEY: str = ""
 
     LANGCHAIN_API_KEY: str = ""
-    LANGCHAIN_TRACING_V2: str = ""
+    LANGCHAIN_TRACING_V2: str = "true"
     LANGCHAIN_PROJECT: str = ""
     LANGCHAIN_ENDPOINT: str = ""
     REDIS_PASSWORD: str = ""

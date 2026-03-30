@@ -12,6 +12,7 @@ langsmith>=0.2.10
 langgraph-checkpoint-postgres==3.0.4
 psycopg[binary]==3.3.3
 psycopg-pool==3.2.6
+psycopg2-binary==2.9.11
 
 
 # Utilities

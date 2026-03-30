@@ -21,6 +21,12 @@ from langgraph.types import interrupt
 from Agents_State.Query_state import AnalyserState
 from config.llm import get_llm
 from Agent_Prompts.analyser_prompt import ANALYSER_PROMPT, RETRY_PROMPT_TEMPLATE
+from services.fetch_query import FrequentFetcherCapture
+
+from config import get_settings
+
+settings= get_settings()
+fetcher= FrequentFetcherCapture(api_key= settings.GEMINI_API_KEY)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -51,6 +57,18 @@ def validate_input(state: AnalyserState) -> AnalyserState:
     if not state["query"] or not state["query"].strip():
         return {**state, "status": "invalid_input", "error": "Query cannot be empty."}
     return {**state, "status": "ok", "error": ""}
+
+
+async def frequent_query_check(state: AnalyserState) -> AnalyserState:
+    """Check if the input query is frequently asked"""
+    canonical_data = await fetcher.canonicalize(state['query'])
+
+    if canonical_data.canonical_query =="NIL":
+        return {**state, "is_frequent_fetched":False, "canonical_query":None, "frequent_response":None}
+    frequent_response = fetcher.check_frequent_prompts(state["query"])
+
+    return {**state, "is_frequent_fetched":frequent_response is not None, 
+            "canonical_query":canonical_data, "frequent_response":frequent_response}
 
 
 def analyse_query(state: AnalyserState) -> AnalyserState:

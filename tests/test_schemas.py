@@ -1,5 +1,5 @@
 import pytest
-from schemas import QueryRequest, QueryResponse
+from schemas import QueryRequest, QueryResponse, FrequentQuery
 
 def test_query_request_valid():
     """Tests that QueryRequest correctly stores a valid user query."""
@@ -20,3 +20,6 @@ def test_query_response_valid():
     assert response.drugs == ["aspirin", "warfarin"]
     assert response.foods == []
     assert response.herbs == []
+
+def test_frequent_query():
+    """Tests that FrequentQuery"""
