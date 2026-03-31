@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     )
 
     GEMINI_API_KEY: str = "my_api_key"
+    GEMINI_API_KEY_ONE: str = "my_api_key"
 
     LANGCHAIN_API_KEY: str = ""
     LANGCHAIN_TRACING_V2: str = ""
