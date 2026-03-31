@@ -6,7 +6,21 @@ def build_query(interaction: InteractionPair) -> tuple[str | None, list, str | N
 
     if interaction.type == "drug-food":
         sql = """
-            SELECT ii.*, di.*, fd.*
+            SELECT 
+                ii.drug_name,
+                ii.food_herb_name,
+                ii.f_h_type,
+                ii.effect,
+                ii.result,
+                ii.conclusion,
+                ii.relationship_classification,
+                ii.experimental_species,
+                ii.dosage_form,
+                ii.potential_target,
+                di.summary AS drug_summary,
+                di.drug_type,
+                fd.food_description,
+                fd.food_group
             FROM interaction_information ii
             JOIN drug_info di ON ii.db_drug_id = di.db_drug_id
             JOIN food_data fd ON ii.db_food_herb_id = fd.db_food_id
@@ -19,7 +33,24 @@ def build_query(interaction: InteractionPair) -> tuple[str | None, list, str | N
 
     if interaction.type == "drug-herb":
         sql = """
-            SELECT ii.*, di.*, hd.*
+            SELECT 
+                ii.drug_name,
+                ii.food_herb_name,
+                ii.f_h_type,
+                ii.effect,
+                ii.result,
+                ii.conclusion,
+                ii.relationship_classification,
+                ii.experimental_species,
+                ii.dosage_form,
+                ii.potential_target,
+                di.summary AS drug_summary,
+                di.drug_type,
+                hd.herb_function,
+                hd.indication,
+                hd.toxicity,
+                hd.therapeutic_class,
+                hd.properties AS herb_properties
             FROM interaction_information ii
             JOIN drug_info di ON ii.db_drug_id = di.db_drug_id
             JOIN herb_data hd ON ii.db_food_herb_id = hd.db_herb_id
