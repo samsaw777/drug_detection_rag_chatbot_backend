@@ -6,6 +6,7 @@ from Agents_State.Query_state import initial_state
 from schemas.analyse_query import QueryResponse
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
+import json
 
 
 @dataclass
@@ -62,7 +63,11 @@ class QueryAnalyserAgent:
             )
 
         query_response = result["query_response"]
-        query_response.final_output = result.get("final_answer", "")
+        # This is for the final output which we will comment out later.
+        # query_response.final_output = result.get("final_answer", "")
+
+        query_response.final_output = json.dumps(result.get("sql_results", []), default=str)
+
         return query_response
 
     async def cleanup_thread(self, thread_id: str):

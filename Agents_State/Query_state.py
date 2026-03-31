@@ -18,7 +18,8 @@ class AnalyserState(TypedDict):
     clarification_needed: bool               
     clarification_message: str               
     thread_id: str                           
-    final_answer: str                        
+    final_answer: str
+    sql_results: list[dict]                        
 
 
 def initial_state(query: str, thread_id: str = "") -> AnalyserState:
@@ -37,4 +38,5 @@ def initial_state(query: str, thread_id: str = "") -> AnalyserState:
         clarification_message="",
         thread_id=thread_id,
         final_answer="",
+        sql_results= []
     )

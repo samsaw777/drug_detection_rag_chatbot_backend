@@ -13,6 +13,7 @@ from Agent_Nodes.query_nodes import (
     build_agent_response,
     format_output,
     handle_error,
+    fetch_data
 )
 
 
@@ -54,6 +55,8 @@ async def build_graph():
     graph.add_node("build_query_response", build_agent_response)
     graph.add_node("format_output",        format_output)
     graph.add_node("handle_error",         handle_error)
+    graph.add_node("fetch_data",            fetch_data)
+
 
     graph.set_entry_point("validate_input")
 
@@ -84,8 +87,10 @@ async def build_graph():
         route_after_confirmation,
         {"analyse_query": "analyse_query", "build_query_response": "build_query_response"},
     )
-    graph.add_edge("build_query_response", "format_output")
-    graph.add_edge("format_output", END)
+    # graph.add_edge("build_query_response", "format_output")
+    graph.add_edge("build_query_response", "fetch_data")
+    # graph.add_edge("format_output", END)
+    graph.add_edge("fetch_data", END)
     graph.add_edge("handle_error",  END)
 
     checkpointer = await get_checkpointer()
