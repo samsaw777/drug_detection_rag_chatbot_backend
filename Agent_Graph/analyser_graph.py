@@ -89,8 +89,9 @@ async def build_graph():
     )
     # graph.add_edge("build_query_response", "format_output")
     graph.add_edge("build_query_response", "fetch_data")
-    # graph.add_edge("format_output", END)
-    graph.add_edge("fetch_data", END)
+    graph.add_edge("fetch_data","format_output")
+    graph.add_edge("format_output", END)
+    # graph.add_edge("fetch_data", END)
     graph.add_edge("handle_error",  END)
 
     checkpointer = await get_checkpointer()

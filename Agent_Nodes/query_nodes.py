@@ -335,7 +335,7 @@ async def format_output(state: AnalyserState) -> AnalyserState:
     }
 
     answer = await chain.ainvoke({
-        "interaction_data": interaction_data,
+        "interaction_data": state["sql_results"],
         "user_query": state["query"]
     })
 

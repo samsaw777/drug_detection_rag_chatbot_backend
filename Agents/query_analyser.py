@@ -64,9 +64,9 @@ class QueryAnalyserAgent:
 
         query_response = result["query_response"]
         # This is for the final output which we will comment out later.
-        # query_response.final_output = result.get("final_answer", "")
+        query_response.final_output = result.get("final_answer", "")
 
-        query_response.final_output = json.dumps(result.get("sql_results", []), default=str)
+        # query_response.final_output = json.dumps(result.get("sql_results", []), default=str)
 
         return query_response
 
