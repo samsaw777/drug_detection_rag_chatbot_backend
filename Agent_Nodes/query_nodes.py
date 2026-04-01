@@ -365,3 +365,81 @@ async def fetch_data(state: AnalyserState) -> AnalyserState:
     results = await execute_queries(interactions, pool)
 
     return {**state, "sql_results": results, "status": "ok"}
+
+
+async def check_cache_node(state: AnalyserState) -> AnalyserState:
+    """Node — Builds canonical key and checks cache for existing response."""
+    from utils.db_main import get_main_pool
+    from utils.cache import build_canonical_key, check_cache
+
+    qr = state.get("query_response")
+    if qr is None:
+        return {**state, "canonical_key": "", "status": "ok"}
+
+    if isinstance(qr, dict):
+        from schemas.analyse_query import InteractionPair
+        interactions = [InteractionPair(**pair) for pair in qr.get("interactions", [])]
+    else:
+        interactions = qr.interactions
+
+    canonical_key = build_canonical_key(interactions)
+    pool = await get_main_pool()
+    cached = await check_cache(canonical_key, pool)
+
+    if cached:
+        print(f"Cache hit for: {canonical_key}")
+        return {
+            **state,
+            "canonical_key": canonical_key,
+            "final_answer": cached["llm_response"],
+            "status": "cache_hit",
+        }
+
+    print(f"Cache miss for: {canonical_key}")
+    return {**state, "canonical_key": canonical_key, "status": "ok"}
+
+
+async def store_cache_node(state: AnalyserState) -> AnalyserState: # type: ignore
+    """Node — Stores the formatted response in cache for future lookups."""
+    try:
+        from utils.db_main import get_main_pool
+        from utils.cache import store_cache
+
+        canonical_key = state.get("canonical_key", "")
+        final_answer = state.get("final_answer", "")
+
+        print(canonical_key, final_answer)
+        if not canonical_key or not final_answer:
+            return state
+
+        qr = state.get("query_response")
+        if qr is None:
+            return state
+
+        # Extract drug names for the cache table
+        if isinstance(qr, dict):
+            from schemas.analyse_query import InteractionPair
+            interactions = [InteractionPair(**pair) for pair in qr.get("interactions", [])]
+        else:
+            interactions = qr.interactions
+
+        drug_names = list(set(
+            pair.drug.lower() for pair in interactions
+        ))
+
+        print("Holla")
+
+        pool = await get_main_pool()
+        await store_cache(
+            canonical_key=canonical_key,
+            llm_response=final_answer,
+            drug_names=drug_names,
+            intent_category="interaction",
+            pool=pool,
+        )
+
+        print(f"Cached response for: {canonical_key}")
+        return state
+    except Exception as e:
+        print(e)
+        

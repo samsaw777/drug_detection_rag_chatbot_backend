@@ -11,7 +11,7 @@ class AnalyserState(TypedDict):
     query_response: Optional[QueryResponse]  
     error: str                               
     retry_count: int                         
-    status: Literal["ok", "error", "invalid_input", "restart", "awaiting_confirmation"]
+    status: Literal["ok", "error", "invalid_input", "restart", "awaiting_confirmation","cache_hit"]
     corrections_found: list[dict]            
     awaiting_confirmation: bool             
     user_confirmation: str                   
@@ -19,7 +19,8 @@ class AnalyserState(TypedDict):
     clarification_message: str               
     thread_id: str                           
     final_answer: str
-    sql_results: list[dict]                        
+    sql_results: list[dict]
+    canonical_key: str                          
 
 
 def initial_state(query: str, thread_id: str = "") -> AnalyserState:
@@ -38,5 +39,6 @@ def initial_state(query: str, thread_id: str = "") -> AnalyserState:
         clarification_message="",
         thread_id=thread_id,
         final_answer="",
-        sql_results= []
+        sql_results= [],
+        canonical_key= ""
     )
