@@ -13,7 +13,9 @@ from Agent_Nodes.query_nodes import (
     build_agent_response,
     format_output,
     handle_error,
-    fetch_data
+    fetch_data,
+    check_cache_node,
+    store_cache_node
 )
 
 
@@ -37,6 +39,9 @@ def route_after_corrections(state: AnalyserState) -> str:
 def route_after_confirmation(state: AnalyserState) -> str:
     return "analyse_query" if state["status"] == "restart" else "build_query_response"
 
+def route_after_cache(state: AnalyserState) -> str:
+    return "end" if state["status"] == "cache_hit" else "fetch_data"
+
 # Graph builder
 async def build_graph():
     """
@@ -56,6 +61,8 @@ async def build_graph():
     graph.add_node("format_output",        format_output)
     graph.add_node("handle_error",         handle_error)
     graph.add_node("fetch_data",            fetch_data)
+    graph.add_node("store_cache",          store_cache_node)
+    graph.add_node("check_cache",          check_cache_node)
 
 
     graph.set_entry_point("validate_input")
@@ -88,10 +95,15 @@ async def build_graph():
         {"analyse_query": "analyse_query", "build_query_response": "build_query_response"},
     )
     # graph.add_edge("build_query_response", "format_output")
-    graph.add_edge("build_query_response", "fetch_data")
+    graph.add_edge("build_query_response", "check_cache")
+    graph.add_conditional_edges(
+        "check_cache",
+        route_after_cache,
+        {"end": END, "fetch_data": "fetch_data"},
+    )
     graph.add_edge("fetch_data","format_output")
-    graph.add_edge("format_output", END)
-    # graph.add_edge("fetch_data", END)
+    graph.add_edge("format_output", "store_cache")
+    graph.add_edge("store_cache", END)
     graph.add_edge("handle_error",  END)
 
     checkpointer = await get_checkpointer()
