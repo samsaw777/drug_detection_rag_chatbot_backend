@@ -8,7 +8,7 @@ from config.settings import get_settings
 Settings = get_settings()
 
 try:
-    conn = psycopg2.connect(Settings.MAIN_DATABASE_URL)
+    conn = psycopg2.connect(Settings.DATABASE_URL)
     cursor = conn.cursor()
 
     if cursor:

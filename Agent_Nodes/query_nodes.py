@@ -335,7 +335,7 @@ async def format_output(state: AnalyserState) -> AnalyserState:
     }
 
     answer = await chain.ainvoke({
-        "interaction_data": interaction_data,
+        "interaction_data": state["sql_results"],
         "user_query": state["query"]
     })
 
@@ -345,3 +345,23 @@ async def format_output(state: AnalyserState) -> AnalyserState:
 def handle_error(state: AnalyserState) -> AnalyserState:
     """Terminal error node. Sets query_response to None so callers detect failure."""
     return {**state, "query_response": None}
+
+async def fetch_data(state: AnalyserState) -> AnalyserState:
+    from utils.db_main import get_main_pool
+    from utils.sql_builder import execute_queries
+    from schemas.analyse_query import InteractionPair
+
+    qr = state.get("query_response")
+    if qr is None:
+        return {**state, "sql_results": [], "status": "error", "error": "No query response to fetch data for"}
+
+    # Handle both dict and Pydantic model
+    if isinstance(qr, dict):
+        interactions = [InteractionPair(**pair) for pair in qr.get("interactions", [])]
+    else:
+        interactions = qr.interactions
+
+    pool = await get_main_pool()
+    results = await execute_queries(interactions, pool)
+
+    return {**state, "sql_results": results, "status": "ok"}
