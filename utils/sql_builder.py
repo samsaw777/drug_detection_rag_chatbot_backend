@@ -1,12 +1,56 @@
 from schemas.analyse_query import InteractionPair
 
+
 def build_query(interaction: InteractionPair) -> tuple[str | None, list, str | None]:
+    """
+    Takes a single InteractionPair and returns (sql, params, error).
+    """
+
     if interaction.type == "drug-drug":
-        return None, [], "Drug-to-drug interaction data is not yet available in our database. This feature is coming soon!"
+        sql = """
+            SELECT DISTINCT
+                dtd.drug1_name,
+                dtd.drug2_name,
+                dtd.interaction_description,
+                di1.summary AS drug1_summary,
+                di1.drug_type AS drug1_type,
+                di2.summary AS drug2_summary,
+                di2.drug_type AS drug2_type
+            FROM dtd_interaction_information dtd
+            JOIN drug_info di1 ON dtd.db_drug1_id = di1.db_drug_id
+            JOIN drug_info di2 ON dtd.db_drug2_id = di2.db_drug_id
+            WHERE (
+                (LOWER(dtd.drug1_name) = LOWER(%s) OR dtd.db_drug1_id IN (
+                    SELECT ds.db_drug_id FROM drug_synonyms ds WHERE LOWER(ds.drug_name) = LOWER(%s)
+                ))
+                AND
+                (LOWER(dtd.drug2_name) = LOWER(%s) OR dtd.db_drug2_id IN (
+                    SELECT ds.db_drug_id FROM drug_synonyms ds WHERE LOWER(ds.drug_name) = LOWER(%s)
+                ))
+            )
+            OR
+            (
+                (LOWER(dtd.drug1_name) = LOWER(%s) OR dtd.db_drug1_id IN (
+                    SELECT ds.db_drug_id FROM drug_synonyms ds WHERE LOWER(ds.drug_name) = LOWER(%s)
+                ))
+                AND
+                (LOWER(dtd.drug2_name) = LOWER(%s) OR dtd.db_drug2_id IN (
+                    SELECT ds.db_drug_id FROM drug_synonyms ds WHERE LOWER(ds.drug_name) = LOWER(%s)
+                ))
+            )
+            LIMIT 1
+        """
+        params = [
+            interaction.drug, interaction.drug,
+            interaction.target, interaction.target,
+            interaction.target, interaction.target,
+            interaction.drug, interaction.drug,
+        ]
+        return sql, params, None
 
     if interaction.type == "drug-food":
         sql = """
-            SELECT 
+            SELECT DISTINCT
                 ii.drug_name,
                 ii.food_herb_name,
                 ii.f_h_type,
@@ -24,16 +68,32 @@ def build_query(interaction: InteractionPair) -> tuple[str | None, list, str | N
             FROM interaction_information ii
             JOIN drug_info di ON ii.db_drug_id = di.db_drug_id
             JOIN food_data fd ON ii.db_food_herb_id = fd.db_food_id
-            WHERE LOWER(ii.drug_name) = LOWER(%s)
-              AND LOWER(ii.food_herb_name) = LOWER(%s)
-              AND ii.f_h_type = 'F'
+            WHERE (
+                LOWER(ii.drug_name) = LOWER(%s)
+                OR ii.db_drug_id IN (
+                    SELECT ds.db_drug_id FROM drug_synonyms ds WHERE LOWER(ds.drug_name) = LOWER(%s)
+                )
+            )
+            AND (
+                LOWER(ii.food_herb_name) = LOWER(%s)
+                OR ii.db_food_herb_id IN (
+                    SELECT db_food_id FROM food_data
+                    WHERE LOWER(common_name) = LOWER(%s)
+                    OR LOWER(scientific_name) = LOWER(%s)
+                )
+            )
+            AND ii.f_h_type = 'F'
+            LIMIT 1
         """
-        params = [interaction.drug, interaction.target]
+        params = [
+            interaction.drug, interaction.drug,
+            interaction.target, interaction.target, interaction.target,
+        ]
         return sql, params, None
 
     if interaction.type == "drug-herb":
         sql = """
-            SELECT 
+            SELECT DISTINCT
                 ii.drug_name,
                 ii.food_herb_name,
                 ii.f_h_type,
@@ -54,17 +114,37 @@ def build_query(interaction: InteractionPair) -> tuple[str | None, list, str | N
             FROM interaction_information ii
             JOIN drug_info di ON ii.db_drug_id = di.db_drug_id
             JOIN herb_data hd ON ii.db_food_herb_id = hd.db_herb_id
-            WHERE LOWER(ii.drug_name) = LOWER(%s)
-              AND LOWER(ii.food_herb_name) = LOWER(%s)
-              AND ii.f_h_type = 'H'
+            WHERE (
+                LOWER(ii.drug_name) = LOWER(%s)
+                OR ii.db_drug_id IN (
+                    SELECT ds.db_drug_id FROM drug_synonyms ds WHERE LOWER(ds.drug_name) = LOWER(%s)
+                )
+            )
+            AND (
+                LOWER(ii.food_herb_name) = LOWER(%s)
+                OR ii.db_food_herb_id IN (
+                    SELECT hd2.db_herb_id FROM herb_data hd2
+                    JOIN herb_synonyms hs ON hd2.fhdi_herb_id = hs.fhdi_herb_id
+                    WHERE LOWER(hs.herb_name) = LOWER(%s)
+                )
+            )
+            AND ii.f_h_type = 'H'
+            LIMIT 1
         """
-        params = [interaction.drug, interaction.target]
+        params = [
+            interaction.drug, interaction.drug,
+            interaction.target, interaction.target,
+        ]
         return sql, params, None
 
     return None, [], f"Unknown interaction type: {interaction.type}"
 
 
 async def execute_queries(interactions: list[InteractionPair], pool) -> list[dict]:
+    """
+    Takes a list of InteractionPairs and a connection pool.
+    Builds and executes a query for each pair.
+    """
     results = []
 
     for interaction in interactions:
@@ -87,17 +167,14 @@ async def execute_queries(interactions: list[InteractionPair], pool) -> list[dic
         try:
             async with pool.connection() as conn:
                 async with conn.cursor() as cur:
-                    print(f"Running SQL: {sql}")
-                    print(f"With params: {params}")
                     await cur.execute(sql, params, prepare=False)
                     columns = [desc[0] for desc in cur.description]
                     rows = await cur.fetchall()
-                    print(f"Rows returned: {len(rows)}")
                     result_entry["data"] = [
                         dict(zip(columns, row)) for row in rows
                     ]
         except Exception as e:
-            print("Error", e)
+            print(f"Query error: {e}")
             result_entry["error"] = f"Database query failed: {str(e)}"
 
         results.append(result_entry)

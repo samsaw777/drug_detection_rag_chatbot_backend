@@ -467,7 +467,7 @@ async def store_cache_node(state: AnalyserState) -> AnalyserState:
         return state
 
     # Don't cache if no data was found in the database
-    sql_results = state.get("sql_result", [])
+    sql_results = state.get("sql_results", [])
     has_data = any(
         len(result.get("data", [])) > 0
         for result in sql_results
