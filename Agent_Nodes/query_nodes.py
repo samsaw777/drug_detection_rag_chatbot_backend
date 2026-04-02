@@ -76,30 +76,11 @@ def retry_analyse(state: AnalyserState) -> AnalyserState:
 
 
 def check_corrections(state: AnalyserState) -> AnalyserState:
-    """
-    Node 5 — Reads clarification and spelling flags from parsed output.
-
-    Priority order:
-    1. If clarification_needed is true → set state flags, router will send to ask_user
-    2. If spelling_flags exist → set awaiting_confirmation, router will send to ask_user
-    3. Otherwise → proceed to build_query_response
-    """
     parsed = state["parsed"] or {}
 
-    # Check clarification first
     clarification_needed = parsed.get("clarification_needed", False)
     clarification_message = parsed.get("clarification_message", "")
 
-    if clarification_needed:
-        return {
-            **state,
-            "clarification_needed": True,
-            "clarification_message": clarification_message,
-            "awaiting_confirmation": True,
-            "corrections_found": [],
-        }
-
-    # Then check spelling
     spelling_flags = parsed.get("spelling_flags", [])
     corrections = [
         {
@@ -110,34 +91,82 @@ def check_corrections(state: AnalyserState) -> AnalyserState:
         for flag in spelling_flags
     ]
 
+    has_spelling = len(corrections) > 0
+    has_clarification = clarification_needed
+
+    # Both — combine into one
+    if has_spelling and has_clarification:
+        return {
+            **state,
+            "clarification_needed": True,
+            "clarification_message": clarification_message,
+            "corrections_found": corrections,
+            "awaiting_confirmation": True,
+        }
+
+    # Clarification only
+    if has_clarification:
+        return {
+            **state,
+            "clarification_needed": True,
+            "clarification_message": clarification_message,
+            "corrections_found": [],
+            "awaiting_confirmation": True,
+        }
+
+    # Spelling only
+    if has_spelling:
+        return {
+            **state,
+            "clarification_needed": False,
+            "clarification_message": "",
+            "corrections_found": corrections,
+            "awaiting_confirmation": True,
+        }
+
+    # Neither
     return {
         **state,
         "clarification_needed": False,
         "clarification_message": "",
-        "corrections_found": corrections,
-        "awaiting_confirmation": len(corrections) > 0,
+        "corrections_found": [],
+        "awaiting_confirmation": False,
     }
 
 
 def ask_user(state: AnalyserState) -> AnalyserState:
-    """
-    Node 6 — Interrupt point.
-    Handles both clarification and spelling interrupts.
 
-    If clarification_needed → sends clarification message
-    If corrections_found → sends spelling correction message
+    corrections = state["corrections_found"]
+    has_spelling = len(corrections) > 0
+    has_clarification = state["clarification_needed"]
 
-    interrupt() freezes the graph. Resumes when .invoke() is called
-    with the same thread_id via Command(resume=user_reply).
-    """
-    if state["clarification_needed"]:
+    # Both spelling + clarification
+    if has_spelling and has_clarification:
+        suggestions = ", ".join(
+            f'"{c["original"]}" → did you mean "{c["corrected"]}"?'
+            for c in corrections
+        )
+        message = (
+            f'I noticed some possible spelling issues: {suggestions}\n'
+            f'Also, {state["clarification_message"]}\n'
+            f'Please confirm the spelling ("yes" to accept corrections) and provide the missing information.'
+        )
+        user_reply = interrupt({
+            "type": "both",
+            "message": message,
+            "corrections": corrections,
+        })
+
+    # Clarification only
+    elif has_clarification:
         user_reply = interrupt({
             "type": "clarification",
             "message": state["clarification_message"],
             "corrections": [],
         })
+
+    # Spelling only
     else:
-        corrections = state["corrections_found"]
         suggestions = ", ".join(
             f'"{c["original"]}" → did you mean "{c["corrected"]}"?'
             for c in corrections
@@ -158,19 +187,52 @@ def ask_user(state: AnalyserState) -> AnalyserState:
 def apply_confirmation(state: AnalyserState) -> AnalyserState:
     """
     Node 7 — Apply user reply after resuming from interrupt.
-
-    For clarification:
-    - Combine original query with user's reply and restart analyser.
-
-    For spelling:
-    - "yes" → accept corrections, swap names in interaction pairs
-    - anything else → plug new name into original query, restart
+    Handles spelling, clarification, or both combined.
+    For 'both': always combine and restart the analyser.
     """
-    user_reply = state["user_confirmation"].strip().lower()
+    user_reply = state["user_confirmation"].strip()
+    user_reply_lower = user_reply.lower()
+    corrections = state["corrections_found"]
+    has_spelling = len(corrections) > 0
+    has_clarification = state["clarification_needed"]
 
-    # ── Clarification reply: combine and restart ──
-    if state["clarification_needed"]:
-        combined_query = f"{state['query']} {state['user_confirmation'].strip()}"
+    # ── Both spelling + clarification ──
+    if has_spelling and has_clarification:
+        # Apply spelling corrections to original query
+        new_query = state["query"]
+        if user_reply_lower == "yes" or user_reply_lower.startswith("yes"):
+            # Accept spelling corrections
+            for correction in corrections:
+                new_query = re.sub(
+                    rf'\b{re.escape(correction["original"])}\b',
+                    correction["corrected"],
+                    new_query,
+                    flags=re.IGNORECASE,
+                )
+            # Extract the additional info (everything after "yes" or the full reply)
+            extra_info = user_reply[3:].strip() if user_reply_lower.startswith("yes") else ""
+            if extra_info:
+                new_query = f"{new_query} {extra_info}"
+        else:
+            # User provided their own corrections + missing info
+            new_query = f"{state['query']} {user_reply}"
+
+        return {
+            **state,
+            "query": new_query,
+            "llm_output": "",
+            "parsed": None,
+            "corrections_found": [],
+            "user_confirmation": "",
+            "clarification_needed": False,
+            "clarification_message": "",
+            "retry_count": 0,
+            "status": "restart",
+        }
+
+    # ── Clarification only ──
+    if has_clarification:
+        combined_query = f"{state['query']} {user_reply}"
         return {
             **state,
             "query": combined_query,
@@ -184,11 +246,8 @@ def apply_confirmation(state: AnalyserState) -> AnalyserState:
             "status": "restart",
         }
 
-    # ── Spelling reply ──
-    corrections = state["corrections_found"]
-
-    if user_reply == "yes":
-        # User confirmed — swap misspelled names in interaction pairs
+    # ── Spelling only ──
+    if user_reply_lower == "yes":
         parsed = dict(state["parsed"] or {})
         interactions = parsed.get("interactions", [])
 
@@ -198,7 +257,6 @@ def apply_confirmation(state: AnalyserState) -> AnalyserState:
             for correction in corrections:
                 original = correction["original"]
                 corrected = correction["corrected"]
-                # Check both drug and target fields
                 if updated_pair["drug"].lower() == original.lower():
                     updated_pair["drug"] = corrected
                 if updated_pair["target"].lower() == original.lower():
@@ -207,7 +265,6 @@ def apply_confirmation(state: AnalyserState) -> AnalyserState:
 
         parsed["interactions"] = updated_interactions
 
-        # Also update corrected_query
         corrected_query = state["query"]
         for correction in corrections:
             corrected_query = re.sub(
@@ -220,7 +277,7 @@ def apply_confirmation(state: AnalyserState) -> AnalyserState:
 
         return {**state, "parsed": parsed, "status": "ok"}
 
-    # User provided a new name — plug into query and restart
+    # Spelling — user provided new name
     new_query = state["query"]
     for correction in corrections:
         new_query = re.sub(
@@ -242,7 +299,6 @@ def apply_confirmation(state: AnalyserState) -> AnalyserState:
         "retry_count": 0,
         "status": "restart",
     }
-
 
 def build_agent_response(state: AnalyserState) -> AnalyserState:
     """Node 8 — Converts parsed dict into a typed QueryResponse with InteractionPairs."""
@@ -399,47 +455,51 @@ async def check_cache_node(state: AnalyserState) -> AnalyserState:
     return {**state, "canonical_key": canonical_key, "status": "ok"}
 
 
-async def store_cache_node(state: AnalyserState) -> AnalyserState: # type: ignore
-    """Node — Stores the formatted response in cache for future lookups."""
-    try:
-        from utils.db_main import get_main_pool
-        from utils.cache import store_cache
+async def store_cache_node(state: AnalyserState) -> AnalyserState:
+    """Node — Stores the formatted response in cache. Only caches when real data was found."""
+    from utils.db_main import get_main_pool
+    from utils.cache import store_cache
 
-        canonical_key = state.get("canonical_key", "")
-        final_answer = state.get("final_answer", "")
+    canonical_key = state.get("canonical_key", "")
+    final_answer = state.get("final_answer", "")
 
-        print(canonical_key, final_answer)
-        if not canonical_key or not final_answer:
-            return state
-
-        qr = state.get("query_response")
-        if qr is None:
-            return state
-
-        # Extract drug names for the cache table
-        if isinstance(qr, dict):
-            from schemas.analyse_query import InteractionPair
-            interactions = [InteractionPair(**pair) for pair in qr.get("interactions", [])]
-        else:
-            interactions = qr.interactions
-
-        drug_names = list(set(
-            pair.drug.lower() for pair in interactions
-        ))
-
-        print("Holla")
-
-        pool = await get_main_pool()
-        await store_cache(
-            canonical_key=canonical_key,
-            llm_response=final_answer,
-            drug_names=drug_names,
-            intent_category="interaction",
-            pool=pool,
-        )
-
-        print(f"Cached response for: {canonical_key}")
+    if not canonical_key or not final_answer:
         return state
-    except Exception as e:
-        print(e)
-        
+
+    # Don't cache if no data was found in the database
+    sql_results = state.get("sql_result", [])
+    has_data = any(
+        len(result.get("data", [])) > 0
+        for result in sql_results
+        if result.get("error") is None
+    )
+
+    if not has_data:
+        print(f"Skipping cache — no data found for: {canonical_key}")
+        return state
+
+    qr = state.get("query_response")
+    if qr is None:
+        return state
+
+    if isinstance(qr, dict):
+        from schemas.analyse_query import InteractionPair
+        interactions = [InteractionPair(**pair) for pair in qr.get("interactions", [])]
+    else:
+        interactions = qr.interactions
+
+    drug_names = list(set(
+        pair.drug.lower() for pair in interactions
+    ))
+
+    pool = await get_main_pool()
+    await store_cache(
+        canonical_key=canonical_key,
+        llm_response=final_answer,
+        drug_names=drug_names,
+        intent_category="interaction",
+        pool=pool,
+    )
+
+    print(f"Cached response for: {canonical_key}")
+    return state
