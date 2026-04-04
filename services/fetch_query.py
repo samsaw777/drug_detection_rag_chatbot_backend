@@ -10,7 +10,9 @@ from typing import Optional, Literal
 
 from schemas import FrequentQuery, CanonicalQuery
 from config import get_settings
+
 import psycopg2
+from psycopg2.extras import RealDictCursor
 
 settings= get_settings()
 
@@ -67,7 +69,6 @@ FETCHER_PROMPT=PromptTemplate(
     """
 )
 
-from psycopg2.extras import RealDictCursor
 
 class FrequentFetcherCapture:
 
@@ -156,22 +157,10 @@ class FrequentFetcherCapture:
                 self.conn.commit()
 
                 print("Inserted recording into database!")
-
-                return cur.fetchone()
+                # print(cur.fetchone())
+                # return cur.fetchone()
         except Exception as e:
             self.conn.rollback()
             print(f"Error saving: {e}")
             return None
     
-
-import asyncio
-
-async def main():
-    f = FrequentFetcherCapture(api_key=settings.GEMINI_API_KEY)
-    mock_data =await f.canonicalize("is it alright to take warfarin with morphine?")
-    
-    # result = f.add_frequent_query(mock_data, llm_response="Is there anything else I can assist you with?")
-    print(mock_data)
-
-if __name__ == "__main__":
-    asyncio.run(main()) 
