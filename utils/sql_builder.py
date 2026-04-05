@@ -147,6 +147,12 @@ async def execute_queries(interactions: list[InteractionPair], pool) -> list[dic
     """
     results = []
 
+    fallback_map = {
+        "drug-food": ["drug-herb"],
+        "drug-herb": ["drug-food"],
+        "drug-drug": []
+    }
+
     for interaction in interactions:
         sql, params, error = build_query(interaction)
 
@@ -164,19 +170,53 @@ async def execute_queries(interactions: list[InteractionPair], pool) -> list[dic
             results.append(result_entry)
             continue
 
-        try:
-            async with pool.connection() as conn:
-                async with conn.cursor() as cur:
-                    await cur.execute(sql, params, prepare=False)
-                    columns = [desc[0] for desc in cur.description]
-                    rows = await cur.fetchall()
-                    result_entry["data"] = [
-                        dict(zip(columns, row)) for row in rows
-                    ]
-        except Exception as e:
-            print(f"Query error: {e}")
-            result_entry["error"] = f"Database query failed: {str(e)}"
+        data = await _run_query(sql, params, pool)
+
+        if data:
+            result_entry["data"] = data
+            results.append(result_entry)
+            continue
+        
+        fallback_types = fallback_map.get(interaction.type, [])
+        found = False
+
+        for fallback_type in fallback_types:
+            print(f"No results for {interaction.type}, trying {fallback_type}...")
+
+            fallback = InteractionPair(
+                type=fallback_type,
+                drug=interaction.drug,
+                target=interaction.target,
+            )
+            sql, params, error = build_query(fallback)
+            if error:
+                continue
+
+            data = await _run_query(sql, params, pool)
+            if data:
+                print(f"Found results with fallback type: {fallback_type}")
+                result_entry["interaction"]["type"] = fallback_type
+                result_entry["data"] = data
+                found = True
+                break
+
+        if not found:
+            print(f"No results found for: {interaction.drug} + {interaction.target}")
 
         results.append(result_entry)
 
     return results
+
+
+async def _run_query(sql: str | None, params: list, pool) -> list[dict]:
+    """Helper — executes a single query and returns rows as list of dicts."""
+    try:
+        async with pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(sql, params, prepare=False)
+                columns = [desc[0] for desc in cur.description]
+                rows = await cur.fetchall()
+                return [dict(zip(columns, row)) for row in rows]
+    except Exception as e:
+        print(f"Query error: {e}")
+        return []
