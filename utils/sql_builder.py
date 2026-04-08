@@ -181,7 +181,7 @@ async def execute_queries(interactions: list[InteractionPair], pool) -> list[dic
         found = False
 
         for fallback_type in fallback_types:
-            print(f"No results for {interaction.type}, trying {fallback_type}...")
+            # print(f"No results for {interaction.type}, trying {fallback_type}...")
 
             fallback = InteractionPair(
                 type=fallback_type,
@@ -194,7 +194,7 @@ async def execute_queries(interactions: list[InteractionPair], pool) -> list[dic
 
             data = await _run_query(sql, params, pool)
             if data:
-                print(f"Found results with fallback type: {fallback_type}")
+                # print(f"Found results with fallback type: {fallback_type}")
                 result_entry["interaction"]["type"] = fallback_type
                 result_entry["data"] = data
                 found = True

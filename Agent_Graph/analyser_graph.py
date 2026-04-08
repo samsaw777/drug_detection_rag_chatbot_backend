@@ -33,6 +33,8 @@ def route_after_parse(state: AnalyserState) -> str:
 
 
 def route_after_corrections(state: AnalyserState) -> str:
+    if state.get("status") == "invalid_query":
+        return "build_query_response"
     return "ask_user" if state["awaiting_confirmation"] else "build_query_response"
 
 
@@ -40,6 +42,8 @@ def route_after_confirmation(state: AnalyserState) -> str:
     return "analyse_query" if state["status"] == "restart" else "build_query_response"
 
 def route_after_cache(state: AnalyserState) -> str:
+    if state["status"] == "invalid_query":
+        return "end"
     return "end" if state["status"] == "cache_hit" else "fetch_data"
 
 # Graph builder
