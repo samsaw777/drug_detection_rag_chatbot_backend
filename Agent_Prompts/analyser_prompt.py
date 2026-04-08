@@ -12,6 +12,7 @@ Given the following user query:
 Extract the following information and return ONLY a valid JSON object with no extra text, no markdown, no explanation:
 
 {{
+  "is_valid": true or false,
   "interactions": [
     {{
       "type": "drug-food" or "drug-herb" or "drug-drug",
@@ -20,7 +21,7 @@ Extract the following information and return ONLY a valid JSON object with no ex
     }}
   ],
   "clarification_needed": true or false,
-  "clarification_message": "question to ask the user if clarification is needed, otherwise empty string",
+  "clarification_message": "question to ask the user if clarification is needed, or rejection message if is_valid is false, otherwise empty string",
   "corrected_query": "the original query exactly as typed",
   "spelling_flags": [
     {{
@@ -32,6 +33,18 @@ Extract the following information and return ONLY a valid JSON object with no ex
 }}
 
 Rules:
+
+Query Validation (check FIRST before anything else):
+- Set is_valid to false if:
+  - The query contains no recognisable drug, food, or herb names at all (e.g., "Holla", "asdfgh", "hello", "what's the weather?").
+  - The query is a greeting, off-topic question, or has no pharmaceutical intent whatsoever.
+  - The query contains only gibberish or random words with no pharmaceutical meaning.
+- When is_valid is false:
+  - interactions must be an empty list.
+  - clarification_needed must be false.
+  - clarification_message should say: "I can only help with drug-food, drug-herb, or drug-drug interactions. Please ask a question that includes specific drug, food, or herb names."
+  - spelling_flags must be an empty list.
+- Set is_valid to true if the query contains at least one recognisable drug, food, or herb name, even if the query is incomplete or has spelling issues.
 
 Interaction Pair Extraction:
 - Each interaction must be a pair with a drug and a target.
@@ -48,7 +61,6 @@ Clarification Rules:
   - The query asks about interactions but is missing one side of the pair (e.g., "also tell me about food interactions" without naming the food).
   - The drug or target is a generic category word instead of a specific name (e.g., "does aspirin interact with food?" — "food" is not a specific food name).
   - The query is too vague to identify any drug, food, or herb (e.g., "is my medication safe?").
-  - The query has no pharmaceutical intent (e.g., greetings, off-topic questions).
 - When clarification_needed is true, interactions must be an empty list.
 - clarification_message should be a short, helpful question guiding the user to provide the missing information.
 - Set clarification_needed to false when at least one complete interaction pair can be formed with specific named entities on both sides.
@@ -75,6 +87,7 @@ The query to analyse is: "{query}"
 
 Expected format:
 {{
+  "is_valid": true or false,
   "interactions": [
     {{
       "type": "drug-food" or "drug-herb" or "drug-drug",
@@ -83,7 +96,7 @@ Expected format:
     }}
   ],
   "clarification_needed": true or false,
-  "clarification_message": "question to ask if needed, otherwise empty string",
+  "clarification_message": "question to ask if needed, rejection message if is_valid is false, otherwise empty string",
   "corrected_query": "original query unchanged",
   "spelling_flags": [
     {{

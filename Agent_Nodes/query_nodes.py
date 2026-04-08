@@ -78,6 +78,20 @@ def retry_analyse(state: AnalyserState) -> AnalyserState:
 def check_corrections(state: AnalyserState) -> AnalyserState:
     parsed = state["parsed"] or {}
 
+    is_valid = parsed.get("is_valid", True)
+    if not is_valid:
+        rejection = parsed.get("clarification_message", "I can only help with drug interaction question, Please ask me a question that includes specific drug and its interactions!")
+        return {
+            **state,
+            "is_valid": False,
+            "clarification_needed": False,
+            "clarification_message": "",
+            "corrections_found": [],
+            "awaiting_confirmation": False,
+            "status": "invalid_query",
+            "final_answer": rejection,
+        }
+
     clarification_needed = parsed.get("clarification_needed", False)
     clarification_message = parsed.get("clarification_message", "")
 
@@ -98,6 +112,7 @@ def check_corrections(state: AnalyserState) -> AnalyserState:
     if has_spelling and has_clarification:
         return {
             **state,
+            "is_valid": True,
             "clarification_needed": True,
             "clarification_message": clarification_message,
             "corrections_found": corrections,
@@ -108,6 +123,7 @@ def check_corrections(state: AnalyserState) -> AnalyserState:
     if has_clarification:
         return {
             **state,
+            "is_valid": True,
             "clarification_needed": True,
             "clarification_message": clarification_message,
             "corrections_found": [],
@@ -118,6 +134,7 @@ def check_corrections(state: AnalyserState) -> AnalyserState:
     if has_spelling:
         return {
             **state,
+            "is_valid": True,
             "clarification_needed": False,
             "clarification_message": "",
             "corrections_found": corrections,
@@ -127,6 +144,7 @@ def check_corrections(state: AnalyserState) -> AnalyserState:
     # Neither
     return {
         **state,
+        "is_valid": True,
         "clarification_needed": False,
         "clarification_message": "",
         "corrections_found": [],
@@ -304,6 +322,21 @@ def build_agent_response(state: AnalyserState) -> AnalyserState:
     """Node 8 — Converts parsed dict into a typed QueryResponse with InteractionPairs."""
     from schemas.analyse_query import QueryResponse, InteractionPair
 
+
+    if state.get("status") == "invalid_query":
+        response = QueryResponse(
+            interactions = [],
+            clarification_needed=False,
+            clarification_message="",
+            corrected_query = state['query'],
+        )
+
+        return {
+            ** state,
+            "query_response": response,
+            "status":"invalid_query"
+        }
+
     p = state["parsed"] or {}
 
     interactions = [
@@ -426,6 +459,9 @@ async def check_cache_node(state: AnalyserState) -> AnalyserState:
     from utils.db_main import get_main_pool
     from utils.cache import build_canonical_key, check_cache
 
+    if state.get("status") == "invalid_query":
+        return state
+
     qr = state.get("query_response")
     if qr is None:
         return {**state, "canonical_key": "", "status": "ok"}
@@ -441,7 +477,6 @@ async def check_cache_node(state: AnalyserState) -> AnalyserState:
     cached = await check_cache(canonical_key, pool)
 
     if cached:
-        print(f"Cache hit for: {canonical_key}")
         return {
             **state,
             "canonical_key": canonical_key,
@@ -449,7 +484,6 @@ async def check_cache_node(state: AnalyserState) -> AnalyserState:
             "status": "cache_hit",
         }
 
-    print(f"Cache miss for: {canonical_key}")
     return {**state, "canonical_key": canonical_key, "status": "ok"}
 
 
@@ -461,7 +495,6 @@ async def store_cache_node(state: AnalyserState) -> AnalyserState:
     canonical_key = state.get("canonical_key", "")
     final_answer = state.get("final_answer", "")
     query_statee = state.get("sql_results","")
-    print(query_statee)
 
     if not canonical_key or not final_answer:
         return state
@@ -475,7 +508,6 @@ async def store_cache_node(state: AnalyserState) -> AnalyserState:
     )
 
     if not has_data:
-        print(f"Skipping cache — no data found for: {canonical_key}")
         return state
 
     qr = state.get("query_response")
@@ -501,5 +533,4 @@ async def store_cache_node(state: AnalyserState) -> AnalyserState:
         pool=pool,
     )
 
-    print(f"Cached response for: {canonical_key}")
     return state
