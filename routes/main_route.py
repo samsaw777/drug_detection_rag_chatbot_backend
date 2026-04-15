@@ -21,7 +21,7 @@ async def initial_response():
 
 @router.post("/response")
 async def basic_agent():
-    output = await Test_agent()
+    output = await Test_agent() # pyright: ignore[reportGeneralTypeIssues]
     return {
         "output": output
     }

@@ -3,10 +3,6 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    """
-    All application settings loaded from .env file.
-    Never hardcode secrets or config values directly.
-    """
     
 
     model_config = SettingsConfigDict(
@@ -38,5 +34,4 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    """Cached settings instance — reads .env once."""
     return Settings()

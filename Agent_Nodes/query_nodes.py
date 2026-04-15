@@ -8,12 +8,9 @@ from config.llm import get_llm
 from Agent_Prompts.analyser_prompt import ANALYSER_PROMPT, RETRY_PROMPT_TEMPLATE
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _extract_text(response) -> str:
-    """Safely extract plain string from Gemini response (content can be list or str)."""
+    
     if isinstance(response.content, list):
         return "".join(
             block.get("text", "") if isinstance(block, dict) else str(block)
@@ -23,23 +20,17 @@ def _extract_text(response) -> str:
 
 
 def _strip_fences(raw: str) -> str:
-    """Remove markdown code fences Gemini sometimes wraps JSON in."""
     return re.sub(r"```(?:json|JSON)?\s*", "", raw).replace("```", "").strip()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# NODES
-# ─────────────────────────────────────────────────────────────────────────────
 
 def validate_input(state: AnalyserState) -> AnalyserState:
-    """Node 1 — Guard rail. Rejects empty or whitespace-only queries."""
     if not state["query"] or not state["query"].strip():
         return {**state, "status": "invalid_input", "error": "Query cannot be empty."}
     return {**state, "status": "ok", "error": ""}
 
 
 def analyse_query(state: AnalyserState) -> AnalyserState:
-    """Node 2 — LLM call. Sends query to Gemini and stores raw response."""
     llm = get_llm()
     formatted_prompt = ANALYSER_PROMPT.format(query=state["query"])
     response = llm.invoke(formatted_prompt)
@@ -48,7 +39,6 @@ def analyse_query(state: AnalyserState) -> AnalyserState:
 
 
 def parse_response(state: AnalyserState) -> AnalyserState:
-    """Node 3 — JSON parser. Strips fences then parses LLM output into a dict."""
     raw = _strip_fences(state["llm_output"])
     try:
         parsed = json.loads(raw)
@@ -64,7 +54,6 @@ def parse_response(state: AnalyserState) -> AnalyserState:
 
 
 def retry_analyse(state: AnalyserState) -> AnalyserState:
-    """Node 4 — Self-correction. Re-calls LLM with the broken output injected."""
     llm = get_llm()
     retry_prompt = RETRY_PROMPT_TEMPLATE.format(
         bad_output=state["llm_output"],
@@ -108,7 +97,7 @@ def check_corrections(state: AnalyserState) -> AnalyserState:
     has_spelling = len(corrections) > 0
     has_clarification = clarification_needed
 
-    # Both — combine into one
+    # Checking for both spelling and clarification
     if has_spelling and has_clarification:
         return {
             **state,
@@ -203,23 +192,17 @@ def ask_user(state: AnalyserState) -> AnalyserState:
 
 
 def apply_confirmation(state: AnalyserState) -> AnalyserState:
-    """
-    Node 7 — Apply user reply after resuming from interrupt.
-    Handles spelling, clarification, or both combined.
-    For 'both': always combine and restart the analyser.
-    """
+
     user_reply = state["user_confirmation"].strip()
     user_reply_lower = user_reply.lower()
     corrections = state["corrections_found"]
     has_spelling = len(corrections) > 0
     has_clarification = state["clarification_needed"]
 
-    # ── Both spelling + clarification ──
+    
     if has_spelling and has_clarification:
-        # Apply spelling corrections to original query
         new_query = state["query"]
         if user_reply_lower == "yes" or user_reply_lower.startswith("yes"):
-            # Accept spelling corrections
             for correction in corrections:
                 new_query = re.sub(
                     rf'\b{re.escape(correction["original"])}\b',
@@ -227,12 +210,10 @@ def apply_confirmation(state: AnalyserState) -> AnalyserState:
                     new_query,
                     flags=re.IGNORECASE,
                 )
-            # Extract the additional info (everything after "yes" or the full reply)
             extra_info = user_reply[3:].strip() if user_reply_lower.startswith("yes") else ""
             if extra_info:
                 new_query = f"{new_query} {extra_info}"
         else:
-            # User provided their own corrections + missing info
             new_query = f"{state['query']} {user_reply}"
 
         return {
@@ -248,7 +229,7 @@ def apply_confirmation(state: AnalyserState) -> AnalyserState:
             "status": "restart",
         }
 
-    # ── Clarification only ──
+    # Clarification only
     if has_clarification:
         combined_query = f"{state['query']} {user_reply}"
         return {
@@ -264,7 +245,7 @@ def apply_confirmation(state: AnalyserState) -> AnalyserState:
             "status": "restart",
         }
 
-    # ── Spelling only ──
+    #  Spelling only 
     if user_reply_lower == "yes":
         parsed = dict(state["parsed"] or {})
         interactions = parsed.get("interactions", [])
@@ -358,7 +339,6 @@ def build_agent_response(state: AnalyserState) -> AnalyserState:
 
 
 async def format_output(state: AnalyserState) -> AnalyserState:
-    """Node 9 — LLM formatter. Takes interaction data and produces a human-readable response."""
     import json
     from langchain_google_genai import ChatGoogleGenerativeAI
     from langchain_core.prompts import ChatPromptTemplate
@@ -374,7 +354,7 @@ async def format_output(state: AnalyserState) -> AnalyserState:
 
     Always structure your response using these exact section headers in this order:
 
-    ### ⚠️ Interaction Found: [Drug] ↔ [Food/Herb/Drug]
+    ### Interaction Found: [Drug] ↔ [Food/Herb/Drug]
 
     **Effect:** [State the effect from the data. If the effect is "Possible", say "Possible interaction identified." If a specific effect is listed, state it directly.]
 
@@ -430,7 +410,6 @@ async def format_output(state: AnalyserState) -> AnalyserState:
 
 
 def handle_error(state: AnalyserState) -> AnalyserState:
-    """Terminal error node. Sets query_response to None so callers detect failure."""
     return {**state, "query_response": None}
 
 async def fetch_data(state: AnalyserState) -> AnalyserState:
@@ -455,7 +434,6 @@ async def fetch_data(state: AnalyserState) -> AnalyserState:
 
 
 async def check_cache_node(state: AnalyserState) -> AnalyserState:
-    """Node — Builds canonical key and checks cache for existing response."""
     from utils.db_main import get_main_pool
     from utils.cache import build_canonical_key, check_cache
 
@@ -488,7 +466,6 @@ async def check_cache_node(state: AnalyserState) -> AnalyserState:
 
 
 async def store_cache_node(state: AnalyserState) -> AnalyserState:
-    """Node — Stores the formatted response in cache. Only caches when real data was found."""
     from utils.db_main import get_main_pool
     from utils.cache import store_cache
 

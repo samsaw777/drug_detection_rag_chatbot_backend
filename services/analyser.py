@@ -62,9 +62,9 @@ class QueryAnalyser:
             raise ValueError(f"Failed to parse LLM response as JSON: {e}\nRaw output: {raw_output}")
 
         return QueryResponse(
-            interaction_types=parsed.get("interaction_types", []),
-            drugs=parsed.get("drugs", []),
-            foods=parsed.get("foods", []),
-            herbs=parsed.get("herbs", []),
-            corrected_query=parsed.get("corrected_query", ""),
+            interactions=parsed.get("interactions", []),
+            clarification_needed=parsed.get("clarification_needed", []),
+            clarification_message=parsed.get("clarification_message", []),
+            corrected_query=parsed.get("corrected_query", []),
+            final_output=parsed.get("final_output", ""),
         )

@@ -48,10 +48,6 @@ def route_after_cache(state: AnalyserState) -> str:
 
 # Graph builder
 async def build_graph():
-    """
-    Compile and return the QueryAnalyser LangGraph with Postgres checkpointer.
-    Call once at startup — reuse the compiled graph for all requests.
-    """
     graph = StateGraph(AnalyserState)
 
     graph.add_node("validate_input",       validate_input)

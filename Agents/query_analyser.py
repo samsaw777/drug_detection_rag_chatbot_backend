@@ -24,7 +24,7 @@ class QueryAnalyserAgent:
 
     @classmethod
     async def create(cls, model: str = "gemini-2.5-flash"):
-        graph = await build_graph()
+        graph = await build_graph() # pyright: ignore[reportGeneralTypeIssues]
         return cls(graph)
 
     async def analyse(self, query: str, thread_id: str = "") -> tuple[QueryResponse | ClarificationNeeded, str]:
