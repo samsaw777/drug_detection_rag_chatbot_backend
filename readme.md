@@ -2,6 +2,10 @@
 
 A FastAPI backend that analyses drug-food, drug-herb, and drug-drug interactions through natural language queries. The system uses a LangGraph-powered multi-agent pipeline to extract interaction entities, retrieve structured data from PostgreSQL, and return clinically formatted responses.
 
+## 🖥️ Frontend
+
+**[→ Frontend Repository](https://github.com/samsaw777/drug_detection_rag_chatbot_frontend)**
+
 ## Architecture
 
 ```
